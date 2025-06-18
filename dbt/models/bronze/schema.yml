@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: bronze
+    schema: bronze
+    tables:
+      - name: raw_customers
+        description: "Raw customer data loaded via Python ingestion"
+        loaded_at_field: processed_at
+        freshness:
+          warn_after: { count: 12, period: hour }
+      - name: raw_orders
+      - name: raw_order_items
+      - name: raw_products
+      - name: raw_sellers
+      - name: raw_payments
+      - name: raw_geolocations

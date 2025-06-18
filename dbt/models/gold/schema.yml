@@ -1,0 +1,251 @@
+version: 2
+
+models:
+  # DIMENSION TABLES
+  - name: customers_dim
+    description: "Customer dimension enriched with age group and tenure."
+    config:
+      materialized: table
+    columns:
+      - name: customer_id
+        description: "Primary key for customer dimension"
+        tests: [not_null, unique]
+      - name: customer_unique_id
+        description: "Original unique identifier from source system"
+        tests: [not_null]
+      - name: age_group
+        description: "Categorized age groups (e.g., 18-25, 26-35, etc.)"
+      - name: customer_tenure
+        description: "Length of customer relationship in days/months"
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  - name: products_dim
+    description: "Product dimension with price range, weight category, and photo quality classifications."
+    config:
+      materialized: table
+    columns:
+      - name: product_id
+        description: "Primary key for product dimension"
+        tests: [not_null, unique]
+      - name: product_name
+        description: "Product name/title"
+      - name: price_range
+        description: "Categorized price ranges (e.g., Low, Medium, High)"
+      - name: weight_category
+        description: "Product weight classification"
+      - name: photo_quality
+        description: "Product photo quality rating/category"
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  - name: sellers_dim
+    description: "Seller dimension with seller tenure and performance attributes."
+    config:
+      materialized: table
+    columns:
+      - name: seller_id
+        description: "Primary key for seller dimension"
+        tests: [not_null, unique]
+      - name: seller_tenure
+        description: "Length of seller relationship"
+      - name: seller_rating_category
+        description: "Categorized seller rating (e.g., Excellent, Good, Fair)"
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  - name: geography_dim
+    description: "Geographic dimension table derived from customer and seller locations."
+    config:
+      materialized: table
+    columns:
+      - name: geo_key
+        description: "Primary key for geography dimension"
+        tests: [not_null, unique]
+      - name: geolocation_city
+        description: "City name"
+      - name: geolocation_region
+        description: "State/region name"
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  - name: dates_dim
+    description: "Date dimension with calendar and fiscal attributes."
+    config:
+      materialized: table
+    columns:
+      - name: date_day
+        description: "Primary date key (YYYY-MM-DD)"
+        tests: [not_null, unique]
+      - name: year
+        description: "Calendar year"
+        tests: [not_null]
+      - name: month
+        description: "Calendar month (1-12)"
+        tests:
+          [
+            not_null,
+            accepted_values:
+              { values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
+          ]
+      - name: quarter
+        description: "Calendar quarter (1-4)"
+        tests: [not_null, accepted_values: { values: [1, 2, 3, 4] }]
+      - name: day_of_week
+        description: "Day of week (1=Sunday, 7=Saturday)"
+        tests: [not_null, accepted_values: { values: [1, 2, 3, 4, 5, 6, 7] }]
+      - name: is_weekend
+        description: "Boolean flag for weekend days"
+        tests: [not_null, accepted_values: { values: [true, false] }]
+      - name: is_month_end
+        description: "Boolean flag for month-end dates"
+        tests: [not_null, accepted_values: { values: [true, false] }]
+
+  # FACT TABLES
+  - name: orders_facts
+    description: "Order-level fact table summarizing orders including delivery and financial metrics."
+    config:
+      materialized: table
+    columns:
+      - name: order_id
+        description: "Primary key for orders fact table"
+        tests: [not_null, unique]
+      - name: customer_id
+        description: "Foreign key to customers dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('customers')
+              field: customer_id
+      - name: order_date
+        description: "Date when order was placed"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dates')
+              field: date_day
+      - name: total_items
+        description: "Total number of items in the order"
+        tests: [not_null, dbt_utils.accepted_range: { min_value: 1 }]
+      - name: total_order_value
+        description: "Total monetary value of the order"
+        tests: [not_null, dbt_utils.accepted_range: { min_value: 0 }]
+      - name: avg_discount_pct
+        description: "Average discount percentage applied to order"
+        tests: [dbt_utils.accepted_range: { min_value: 0, max_value: 100 }]
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  - name: order_items_facts
+    description: "Order item-level fact table capturing product-level financial and shipping data."
+    config:
+      materialized: table
+    columns:
+      - name: order_id
+        description: "Foreign key to orders fact table"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('orders')
+              field: order_id
+      - name: order_item_id
+        description: "Unique identifier for each order item"
+        tests: [not_null]
+      - name: product_id
+        description: "Foreign key to products dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('products')
+              field: product_id
+      - name: total_item_cost
+        description: "Total cost for this order item"
+        tests: [not_null, dbt_utils.accepted_range: { min_value: 0 }]
+      - name: shipping_category
+        description: "Shipping method/category used"
+      - name: coupon_used
+        description: "Boolean flag indicating if coupon was used"
+        tests: [accepted_values: { values: [true, false] }]
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  - name: payments_facts
+    description: "Payment-level fact table with method complexity and value analysis."
+    config:
+      materialized: table
+    columns:
+      - name: order_id
+        description: "Foreign key to orders fact table"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('orders')
+              field: order_id
+      - name: payment_type
+        description: "Type/method of payment used"
+        tests: [not_null]
+      - name: total_payment_value
+        description: "Total payment amount"
+        tests: [not_null, dbt_utils.accepted_range: { min_value: 0 }]
+      - name: payment_complexity
+        description: "Complexity rating of payment method"
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  # PERFORMANCE/AGGREGATE FACT TABLES
+  - name: seller_performance_facts
+    description: "Monthly seller-level performance metrics including revenue, delivery, and customer base."
+    config:
+      materialized: table
+    columns:
+      - name: seller_id
+        description: "Foreign key to sellers dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('sellers')
+              field: seller_id
+      - name: month_year
+        description: "Month-year period for performance metrics"
+        tests: [not_null]
+      - name: total_revenue
+        description: "Total revenue generated by seller in the period"
+        tests: [dbt_utils.accepted_range: { min_value: 0 }]
+      - name: on_time_delivery_rate
+        description: "Percentage of on-time deliveries"
+        tests: [dbt_utils.accepted_range: { min_value: 0, max_value: 100 }]
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]
+
+  - name: product_performance_facts
+    description: "Monthly product-level performance by category including sales, revenue, and market share."
+    config:
+      materialized: table
+    columns:
+      - name: product_id
+        description: "Foreign key to products dimension"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('products')
+              field: product_id
+      - name: month_year
+        description: "Month-year period for performance metrics"
+        tests: [not_null]
+      - name: category_revenue_share
+        description: "Product's share of category revenue"
+        tests: [dbt_utils.accepted_range: { min_value: 0, max_value: 100 }]
+      - name: category_volume_share
+        description: "Product's share of category volume"
+        tests: [dbt_utils.accepted_range: { min_value: 0, max_value: 100 }]
+      - name: processed_at
+        description: "Timestamp when record was processed"
+        tests: [not_null]

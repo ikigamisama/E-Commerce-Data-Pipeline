@@ -1,0 +1,19 @@
+data_pipeline_e_commerce:
+  outputs:
+    dev:
+      type: duckdb
+      path: /opt/airflow/data/e_commerce.db
+      schema: main
+      threads: 4
+
+    prod:
+      type: postgres
+      host: postgres
+      user: airflow
+      password: airflow
+      port: 5432
+      dbname: e_commerce
+      schema: bronze
+      threads: 4
+
+  target: dev

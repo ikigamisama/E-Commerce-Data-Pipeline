@@ -1,0 +1,199 @@
+version: 2
+
+models:
+  - name: customers
+    description: "Cleaned and validated customer data from the bronze raw_customers table."
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier"
+        tests: [not_null, unique]
+      - name: customer_unique_id
+        description: "Alternative customer identifier used for anonymized tracking"
+        tests: [not_null]
+      - name: customer_name
+        description: "Uppercased, trimmed customer name"
+      - name: customer_age
+        description: "Customer's age, filtered between 18 and 100"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 18
+              max_value: 100
+      - name: customer_gender
+        description: "Standardized gender field"
+      - name: customer_city
+        description: "City name of customer"
+      - name: customer_region
+        description: "Region of the customer"
+      - name: signup_date
+        description: "Date the customer signed up"
+        tests: [not_null]
+      - name: processed_at
+        description: "Timestamp of transformation"
+
+  - name: orders
+    description: "Orders with delivery metrics and cleaned status from raw_orders."
+    columns:
+      - name: order_id
+        description: "Unique order identifier"
+        tests: [not_null, unique]
+      - name: customer_id
+        description: "Customer who placed the order"
+        tests: [not_null]
+      - name: order_status
+        description: "Standardized order status"
+        tests: [not_null]
+      - name: order_purchase_timestamp
+        description: "Timestamp of order purchase"
+        tests: [not_null]
+      - name: order_estimated_delivery_date
+        description: "Estimated delivery date"
+      - name: order_delivered_carrier_date
+        description: "Carrier delivery timestamp"
+      - name: order_delivered_customer_date
+        description: "Customer delivery timestamp"
+      - name: delivery_days
+        description: "Actual delivery time in days"
+      - name: delivery_performance
+        description: "ON_TIME, LATE, or PENDING"
+      - name: processed_at
+        description: "Timestamp of transformation"
+
+  - name: order_items
+    description: "Cleaned order item-level transactions with price adjustments."
+    columns:
+      - name: order_id
+        description: "Order this item belongs to"
+        tests: [not_null]
+      - name: order_item_id
+        description: "Item ID within the order"
+      - name: product_id
+        description: "Product purchased"
+        tests: [not_null]
+      - name: seller_id
+        description: "Seller of the product"
+        tests: [not_null]
+      - name: shipping_limit_date
+        description: "Deadline to ship the item"
+      - name: price
+        description: "Item price"
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0.01
+      - name: freight_value
+        description: "Freight cost for the item"
+      - name: discount_pct
+        description: "Discount percentage, defaulted to 0"
+      - name: coupon_applied
+        description: "Coupon used, defaulted to NONE"
+      - name: discounted_price
+        description: "Price after applying discount"
+      - name: total_item_cost
+        description: "Discounted price plus freight"
+      - name: processed_at
+        description: "Timestamp of transformation"
+
+  - name: products
+    description: "Cleaned product catalog with calculated volume."
+    columns:
+      - name: product_id
+        description: "Product identifier"
+        tests: [not_null, unique]
+      - name: product_category_name
+        description: "Cleaned product category"
+      - name: product_description
+        description: "Product description"
+      - name: product_price
+        description: "Price of the product"
+      - name: product_photos_qty
+        description: "Number of photos, defaulted to 0"
+      - name: product_weight_g
+        description: "Weight in grams"
+      - name: product_length_cm
+        description: "Length in cm"
+      - name: product_height_cm
+        description: "Height in cm"
+      - name: product_width_cm
+        description: "Width in cm"
+      - name: product_name
+        description: "Cleaned product name"
+        tests: [not_null]
+      - name: product_volume_cm3
+        description: "Calculated volume in cm³"
+      - name: processed_at
+        description: "Timestamp of transformation"
+
+  - name: sellers
+    description: "Cleaned seller data with rating category."
+    columns:
+      - name: seller_id
+        description: "Unique seller identifier"
+        tests: [not_null, unique]
+      - name: seller_signup_date
+        description: "Signup date of the seller"
+        tests: [not_null]
+      - name: seller_category_specialization
+        description: "Cleaned specialization field"
+      - name: seller_rating
+        description: "Numerical rating, defaulted to 0"
+      - name: seller_fulfillment_type
+        description: "Fulfillment type (e.g. OWN, MARKETPLACE)"
+      - name: seller_city
+        description: "City of seller"
+      - name: seller_state
+        description: "State/region of seller"
+      - name: seller_rating_category
+        description: "Rating category from EXCELLENT to POOR"
+      - name: processed_at
+        description: "Timestamp of transformation"
+
+  - name: payments
+    description: "Cleaned and categorized payment data."
+    columns:
+      - name: order_id
+        description: "Associated order ID"
+        tests: [not_null]
+      - name: payment_sequential
+        description: "Sequential payment number"
+      - name: payment_type
+        description: "Payment method"
+      - name: payment_installments
+        description: "Installment count"
+      - name: payment_value
+        description: "Total amount paid"
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0.01
+      - name: payment_status
+        description: "Payment status"
+        tests: [not_null]
+      - name: payment_category
+        description: "Derived category: SINGLE_PAYMENT, SHORT_TERM_INSTALLMENT, etc."
+      - name: processed_at
+        description: "Timestamp of transformation"
+
+  - name: geolocations
+    description: "Validated city-level geolocation data."
+    columns:
+      - name: geolocation_city
+        description: "Uppercased and trimmed city"
+        tests: [not_null]
+      - name: geolocation_region
+        description: "Region name"
+        tests: [not_null]
+      - name: geolocation_lat
+        description: "Latitude value"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: -90
+              max_value: 90
+      - name: geolocation_lng
+        description: "Longitude value"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: -180
+              max_value: 180
+      - name: processed_at
+        description: "Timestamp of transformation"

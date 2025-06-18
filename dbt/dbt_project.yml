@@ -1,0 +1,58 @@
+name: "medallion_dbt"
+version: "1.0.0"
+config-version: 2
+
+profile: "data_pipeline_e_commerce"
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  medallion_dbt:
+    bronze:
+      +materialized: table
+      +schema: bronze
+      +tags: ["bronze", "raw"]
+
+    silver:
+      +schema: silver
+      tags: ["silver"]
+      +materialized: table
+
+    gold:
+      dimensions:
+        +schema: gold
+        +materialized: table
+        +tags: ["gold", "dimensions"]
+
+      facts:
+        +schema: gold
+        +materialized: table
+        +tags: ["gold", "facts"]
+
+snapshots:
+  medallion_dbt:
+    +target_schema: snapshots
+    +strategy: timestamp
+    +updated_at: updated_at
+
+seeds:
+  medallion_dbt:
+    +schema: seeds
+    +materialized: table
+
+vars:
+  start_date: "2020-01-01"
+  end_date: "2025-12-31"
+  min_order_value: 0.01
+  max_order_value: 10000.00
+  exclude_cancelled_orders: true
+  include_test_customers: false

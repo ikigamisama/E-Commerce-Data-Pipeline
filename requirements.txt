@@ -1,0 +1,14 @@
+botocore
+boto3
+Faker
+apache-airflow-providers-amazon
+apache-airflow-providers-common-messaging
+python-dotenv
+fastapi
+uvicorn[standard]
+
+dbt-core>=1.9.0,<2.0.0
+dbt-duckdb>=1.9.0,<2.0.0
+dbt-postgres>=1.9.0,<2.0.0
+pydantic-settings>=2.0.0
+pydantic>=2.0.0,<3.0.0
